@@ -39,9 +39,10 @@ def path_total(data, path):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print "Need two arguments: a file name and a path prefix to match against."
-
+        print "  Need two arguments: a file name and a path prefix to match against."
+        print "  Usage: %s <memory report path> <prefix> [<process name>]" % sys.argv[0]
         exit(-1)
+
     file_path = sys.argv[1]
     tree_path = sys.argv[2]
     json_data = open(file_path)
@@ -57,6 +58,15 @@ if __name__ == "__main__":
         json_data.close()
 
     totals = path_total(data, tree_path);
+
+    # If a process name is provided, restricted output to processes matching
+    # that name.
+    if len(sys.argv) > 3:
+        proc_filter = sys.argv[3]
+        for k in totals.keys():
+            if not proc_filter in k:
+                del totals[k]
+
     sorted_totals = sorted(totals.iteritems(), key=lambda(k,v): (-v,k))
     for (k, v) in sorted_totals:
         if v:
