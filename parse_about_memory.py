@@ -10,6 +10,7 @@
 
 # "basically: |./about_memory_parser memory_report.json "explicit/"| would give you the explicit value, you could pump that through find and call it good"
 
+import argparse
 import json
 import collections
 import sys
@@ -73,16 +74,18 @@ def calculate_memory_report_values(memory_report_path, data_point_path,
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print "  Need two arguments: a file name and a path prefix to match against."
-        print "  Usage: %s <memory report path> <prefix> [<process name>]" % sys.argv[0]
-        exit(-1)
+    parser = argparse.ArgumentParser(
+            description='Extract data points from about:memory reports')
+    parser.add_argument('report', action='store',
+                        help='Path to a memory report file.')
+    parser.add_argument('prefix', action='store',
+                        help='Prefix of data point to measure.')
+    parser.add_argument('--proc-filter', action='store', default=None,
+                        help='Process name filter. If not provided all processes will be included.')
 
-    file_path = sys.argv[1]
-    tree_path = sys.argv[2]
-    process_name = sys.argv[3] if len(sys.argv) > 3 else None
-
-    totals = calculate_memory_report_values(file_path, tree_path, process_name)
+    args = parser.parse_args()
+    totals = calculate_memory_report_values(
+                    args.report, args.prefix, args.proc_filter)
 
     sorted_totals = sorted(totals.iteritems(), key=lambda(k,v): (-v,k))
     for (k, v) in sorted_totals:
