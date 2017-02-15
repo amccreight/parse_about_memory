@@ -38,6 +38,39 @@ def path_total(data, path):
 
     return totals
 
+def calculate_memory_report_values(memory_report_path, data_point_path,
+                                   process_name=None):
+    """
+    Opens the given memory report file and calculates the value for the given
+    data point.
+
+    :param memory_report_path: Path to the memory report file to parse.
+    :param data_point_path: Path of the data point to calculate in the memory
+     report, ie: 'explicit/heap-unclassified'.
+    :param process_name: Name of process to limit reports to. ie 'Main'
+    """
+    data = None
+
+    try:
+        with open(memory_report_path) as f:
+            data = json.load(f)
+    except ValueError, e:
+        print "Error:", e
+        print "Maybe this is a zip file."
+        with gzip.open(memory_report_path, 'rb') as f:
+            data = json.load(f)
+
+    totals = path_total(data, data_point_path)
+
+    # If a process name is provided, restricted output to processes matching
+    # that name.
+    if process_name:
+        for k in totals.keys():
+            if not process_name in k:
+                del totals[k]
+
+    return totals
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -47,27 +80,9 @@ if __name__ == "__main__":
 
     file_path = sys.argv[1]
     tree_path = sys.argv[2]
-    json_data = open(file_path)
-    try:
-        data = json.load(json_data)
-        json_data.close()
-    except ValueError, e:
-        print "Error:", e
-        print "Maybe this is a zip file."
-        json_data.close()
-        json_data = gzip.open(file_path, 'rb')
-        data = json.load(json_data)
-        json_data.close()
+    process_name = sys.argv[3] if len(sys.argv) > 3 else None
 
-    totals = path_total(data, tree_path);
-
-    # If a process name is provided, restricted output to processes matching
-    # that name.
-    if len(sys.argv) > 3:
-        proc_filter = sys.argv[3]
-        for k in totals.keys():
-            if not proc_filter in k:
-                del totals[k]
+    totals = calculate_memory_report_values(file_path, tree_path, process_name)
 
     sorted_totals = sorted(totals.iteritems(), key=lambda(k,v): (-v,k))
     for (k, v) in sorted_totals:
