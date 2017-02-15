@@ -7,21 +7,16 @@
 
 # Firefox about:memory log parser.
 
-
-# "basically: |./about_memory_parser memory_report.json "explicit/"| would give you the explicit value, you could pump that through find and call it good"
-
-import json
-import collections
-import sys
-import operator
+import argparse
+from collections import defaultdict
 import gzip
+import json
 
-from pprint import pprint
 
 def path_total(data, path):
-    totals = collections.defaultdict(int)
-    totals_heap = collections.defaultdict(int)
-    totals_heap_allocated = collections.defaultdict(int)
+    totals = defaultdict(int)
+    totals_heap = defaultdict(int)
+    totals_heap_allocated = defaultdict(int)
     for report in data["reports"]:
         if report["path"].startswith(path):
             totals[report["process"]] += report["amount"]
@@ -39,35 +34,52 @@ def path_total(data, path):
     return totals
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print "  Need two arguments: a file name and a path prefix to match against."
-        print "  Usage: %s <memory report path> <prefix> [<process name>]" % sys.argv[0]
-        exit(-1)
+def calculate_memory_report_values(memory_report_path, data_point_path,
+                                   process_name=None):
+    """
+    Opens the given memory report file and calculates the value for the given
+    data point.
 
-    file_path = sys.argv[1]
-    tree_path = sys.argv[2]
-    json_data = open(file_path)
+    :param memory_report_path: Path to the memory report file to parse.
+    :param data_point_path: Path of the data point to calculate in the memory
+     report, ie: 'explicit/heap-unclassified'.
+    :param process_name: Name of process to limit reports to. ie 'Main'
+    """
+    data = None
+
     try:
-        data = json.load(json_data)
-        json_data.close()
+        with open(memory_report_path) as f:
+            data = json.load(f)
     except ValueError, e:
-        print "Error:", e
-        print "Maybe this is a zip file."
-        json_data.close()
-        json_data = gzip.open(file_path, 'rb')
-        data = json.load(json_data)
-        json_data.close()
+        # Check if the file is gzipped.
+        with gzip.open(memory_report_path, 'rb') as f:
+            data = json.load(f)
 
-    totals = path_total(data, tree_path);
+    totals = path_total(data, data_point_path)
 
     # If a process name is provided, restricted output to processes matching
     # that name.
-    if len(sys.argv) > 3:
-        proc_filter = sys.argv[3]
+    if process_name:
         for k in totals.keys():
-            if not proc_filter in k:
+            if not process_name in k:
                 del totals[k]
+
+    return totals
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+            description='Extract data points from about:memory reports')
+    parser.add_argument('report', action='store',
+                        help='Path to a memory report file.')
+    parser.add_argument('prefix', action='store',
+                        help='Prefix of data point to measure.')
+    parser.add_argument('--proc-filter', action='store', default=None,
+                        help='Process name filter. If not provided all processes will be included.')
+
+    args = parser.parse_args()
+    totals = calculate_memory_report_values(
+                    args.report, args.prefix, args.proc_filter)
 
     sorted_totals = sorted(totals.iteritems(), key=lambda(k,v): (-v,k))
     for (k, v) in sorted_totals:
