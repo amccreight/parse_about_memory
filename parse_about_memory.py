@@ -7,22 +7,16 @@
 
 # Firefox about:memory log parser.
 
-
-# "basically: |./about_memory_parser memory_report.json "explicit/"| would give you the explicit value, you could pump that through find and call it good"
-
 import argparse
-import json
-import collections
-import sys
-import operator
+from collections import defaultdict
 import gzip
+import json
 
-from pprint import pprint
 
 def path_total(data, path):
-    totals = collections.defaultdict(int)
-    totals_heap = collections.defaultdict(int)
-    totals_heap_allocated = collections.defaultdict(int)
+    totals = defaultdict(int)
+    totals_heap = defaultdict(int)
+    totals_heap_allocated = defaultdict(int)
     for report in data["reports"]:
         if report["path"].startswith(path):
             totals[report["process"]] += report["amount"]
@@ -38,6 +32,7 @@ def path_total(data, path):
                 totals[k] += heap_unclassified
 
     return totals
+
 
 def calculate_memory_report_values(memory_report_path, data_point_path,
                                    process_name=None):
@@ -56,8 +51,7 @@ def calculate_memory_report_values(memory_report_path, data_point_path,
         with open(memory_report_path) as f:
             data = json.load(f)
     except ValueError, e:
-        print "Error:", e
-        print "Maybe this is a zip file."
+        # Check if the file is gzipped.
         with gzip.open(memory_report_path, 'rb') as f:
             data = json.load(f)
 
